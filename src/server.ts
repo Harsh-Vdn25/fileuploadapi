@@ -7,19 +7,20 @@ const app = express();
 app.use(express.json());
 
 const fileInfo: {
-  originalname: string,
-  filename: string
+  originalName: string,
+  generatedName: string
 }[] = [];
 
-const folder = "uploads";
+console.log(path.join(process.cwd(),"uploads"));
+const ROOT_DIR = path.resolve(__dirname,"..");
+const UPLOAD_DIR = path.join(ROOT_DIR,"uploads");
 
 app.post("/", upload.single("file"), (req: Request, res: Response) => {
   if (!req.file) return res.status(400).json({ message: "File not found" });
   fileInfo.push({
-    originalname: req.file.originalname,
-    filename: req.file.filename,
+    originalName: req.file.originalname,
+    generatedName: req.file.filename,
   });
-  console.log(fileInfo);
 
   res.json({
     message: "File uploaded successfully",
@@ -30,13 +31,13 @@ app.post("/", upload.single("file"), (req: Request, res: Response) => {
 app.get("/", async (req: Request, res: Response) => {
   const filename = req.query.name;
   try {
-    const file = fileInfo.find((x) => x.originalname === filename);
-    
+    const file = fileInfo.find((x) => x.originalName === filename);
+
     if (!file) {
       return res.status(400).json({ message: "File doesnot exist" });
     }
-    const filePath = path.join(process.cwd(),folder,file.filename);
-
+    const filePath = path.join(UPLOAD_DIR,file.generatedName);
+    console.log(filePath);
     res.download(filePath);
   } catch (err) {
     console.log("Error getting files:", err);
@@ -48,17 +49,16 @@ app.delete("/", async (req: Request, res: Response) => {
   console.log(req.body);
   if (!filename) return res.status(400).json({ message: "Invalid request" });
   try {
-    const file = fileInfo.find((x) => x.originalname === filename);
+    const file = fileInfo.find((x) => x.originalName === filename);
     if (!file) {
       return res.status(404).json({ message: "File not found." });
     }
     const fileDeleted = await fs.unlink(
-      path.join(process.cwd(), folder, filename),
+      path.join(UPLOAD_DIR,file.generatedName),
     );
-    
     for(let i=0;i<fileInfo.length;i++){
-        if(fileInfo[i]?.originalname === filename){
-            fileInfo.slice(i,1);
+        if(fileInfo[i]?.originalName === filename){
+            fileInfo.splice(i,1);
             break;
         }
     }
