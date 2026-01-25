@@ -2,6 +2,7 @@ import express, { Request, Response } from "express";
 import fs from "node:fs/promises";
 import { upload } from "./config/multerConfig";
 import path from "path";
+import { prisma } from "./config/prismaClient";
 
 const app = express();
 app.use(express.json());
