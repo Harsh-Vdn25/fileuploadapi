@@ -1,1 +1,1 @@
-{"root":["./src/server.ts","./src/config/multerconfig.ts","./src/config/prismaclient.ts"],"version":"5.9.3"}
+{"root":["./src/server.ts","./src/config/multerconfig.ts","./src/config/prismaclient.ts","./src/controllers/file.controller.ts","./src/controllers/user.controller.ts","./src/middleware/checktoken.ts","./src/routes/file.route.ts","./src/routes/user.route.ts"],"version":"5.9.3"}

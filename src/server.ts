@@ -1,8 +1,9 @@
 import express, { Request, Response } from "express";
+
 import fs from "node:fs/promises";
 import { upload } from "./config/multerConfig";
 import path from "path";
-import { prisma } from "./config/prismaClient";
+import { verifyToken } from "./middleware/verifyToken";
 
 const app = express();
 app.use(express.json());
@@ -16,7 +17,7 @@ console.log(path.join(process.cwd(),"uploads"));
 const ROOT_DIR = path.resolve(__dirname,"..");
 const UPLOAD_DIR = path.join(ROOT_DIR,"uploads");
 
-app.post("/", upload.single("file"), (req: Request, res: Response) => {
+app.post("/", verifyToken,upload.single("file"), (req: Request, res: Response) => {
   if (!req.file) return res.status(400).json({ message: "File not found" });
   fileInfo.push({
     originalName: req.file.originalname,
