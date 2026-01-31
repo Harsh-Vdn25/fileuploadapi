@@ -19,12 +19,12 @@ export const signup = async (req: Request, res: Response) => {
       },
     });
     const token = createToken({ userId: user.id });
-
     res.status(200).json({
       message: "Signed up successfully.",
       token,
     });
   } catch (err) {
+    console.log(err);
     return res.status(500).json({ message: "Something went wrong." });
   }
 };

@@ -28,4 +28,5 @@ model File{
   generatedname    String      @unique     
   owner            User        @relation(fields: [ownerid],references: [id])
   ownerid          Int
+  @@unique([originalname,ownerid])
 }
