@@ -3,21 +3,14 @@ import fs from "node:fs/promises";
 import { prisma } from "../config/prismaClient";
 import path from "node:path";
 import { Credentials } from "../config/creds";
-import { upload } from "../config/multerConfig";
+import { findUserFile } from "../helpers/fileHelper";
 
 export const uploadFile = async (req: Request, res: Response) => {
   const file = req.file;
   const userId = (req as any).userId;
   if (!file) return res.status(400).json({ message: "No file sent." });
   try {
-    const isDuplicate = await prisma.file.findUnique({
-      where: {
-        originalname_ownerid: {
-          originalname: file.originalname,
-          ownerid: userId,
-        },
-      },
-    });
+    const isDuplicate = await findUserFile(userId, file.originalname);
 
     if (isDuplicate) {
       await fs.unlink(path.join(Credentials.DIR_ADDR!, file.filename));
@@ -49,19 +42,14 @@ export const getFile = async (req: Request, res: Response) => {
     return res.status(404).json({ message: "File not found" });
   }
   try {
-    const savedFile = await prisma.file.findUnique({
-      where: {
-        originalname_ownerid: { originalname: filename, ownerid: userId },
-      },
-    });
+    const saved = await findUserFile(userId, filename);
 
-    if (!savedFile)
+    if (!saved?.savedFile)
       return res
         .status(404)
         .json({ message: "File with the given name doesnot exist" });
 
-    const filePath = path.join(Credentials.DIR_ADDR!, savedFile.generatedname);
-    res.download(filePath);
+    res.download(saved.filePath);
   } catch (err) {}
 };
 
@@ -73,19 +61,12 @@ export const updateFile = async (req: Request, res: Response) => {
     return res.status(400).json({ message: "File not found" });
   const userId = (req as any).userId;
   try {
-    const savedFile = await prisma.file.findUnique({
-      where: {
-        originalname_ownerid: {
-          originalname: filename,
-          ownerid: userId,
-        },
-      },
-    });
+    const saved = await findUserFile(userId, filename);
 
-    if (!savedFile) {
+    if (!saved) {
       return res.status(404).json({ message: "File does not exist." });
     }
-    await fs.unlink(path.join(Credentials.DIR_ADDR!, savedFile.generatedname));
+    await fs.unlink(saved.filePath);
 
     await prisma.file.update({
       where: {
@@ -98,8 +79,6 @@ export const updateFile = async (req: Request, res: Response) => {
         generatedname: file?.filename,
       },
     });
-    if (!savedFile)
-      return res.status(404).json({ message: "File doesn't exist." });
 
     res.status(200).json({ message: "File updated." });
   } catch (err) {
@@ -113,17 +92,14 @@ export const deleteFile = async (req: Request, res: Response) => {
     return res.status(400).json({ message: "File not found" });
   const userId = (req as any).userId;
   try {
-    const savedFile = await prisma.file.findUnique({
+    const saved = await findUserFile(userId, filename);
+    if (!saved) return res.status(404).json({ message: "File doesn't exist." });
+    await fs.unlink(saved.filePath);
+    await prisma.file.delete({
       where: {
-        originalname_ownerid: {
-          originalname: filename,
-          ownerid: userId,
-        },
+        generatedname: saved.savedFile.generatedname,
       },
     });
-    if (!savedFile)
-      return res.status(404).json({ message: "File doesn't exist." });
-    await fs.unlink(path.join(Credentials.DIR_ADDR!, savedFile.generatedname));
     res.status(200).json({ message: "File deleted." });
   } catch (err) {
     res.status(500).json({ message: err });
