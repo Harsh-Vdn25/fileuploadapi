@@ -50,7 +50,9 @@ export const getFile = async (req: Request, res: Response) => {
         .json({ message: "File with the given name doesnot exist" });
 
     res.download(saved.filePath);
-  } catch (err) {}
+  } catch (err) {
+    res.status(500).json({message: ""})
+  }
 };
 
 export const updateFile = async (req: Request, res: Response) => {
