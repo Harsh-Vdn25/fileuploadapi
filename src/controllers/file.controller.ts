@@ -28,6 +28,7 @@ export const uploadFile = async (req: Request, res: Response) => {
     });
     res.status(200).json({ message: "Saved the file sucessfully" });
   } catch (err) {
+    await fs.unlink(path.join(Credentials.DIR_ADDR!,file.filename));
     return res.status(500).json({
       error: err,
       message: "Something went wrong.",
@@ -68,7 +69,6 @@ export const updateFile = async (req: Request, res: Response) => {
     if (!saved) {
       return res.status(404).json({ message: "File does not exist." });
     }
-    await fs.unlink(saved.filePath);
 
     await prisma.file.update({
       where: {
@@ -82,8 +82,11 @@ export const updateFile = async (req: Request, res: Response) => {
       },
     });
 
+    await fs.unlink(saved.filePath);
+
     res.status(200).json({ message: "File updated." });
   } catch (err) {
+    await fs.unlink(path.join(Credentials.DIR_ADDR!,file.filename));
     res.status(500).json({ message: "" });
   }
 };
@@ -96,12 +99,13 @@ export const deleteFile = async (req: Request, res: Response) => {
   try {
     const saved = await findUserFile(userId, filename);
     if (!saved) return res.status(404).json({ message: "File doesn't exist." });
-    await fs.unlink(saved.filePath);
+
     await prisma.file.delete({
       where: {
         generatedname: saved.savedFile.generatedname,
       },
     });
+    await fs.unlink(saved.filePath);
     res.status(200).json({ message: "File deleted." });
   } catch (err) {
     res.status(500).json({ message: err });
