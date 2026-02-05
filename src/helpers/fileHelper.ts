@@ -11,8 +11,8 @@ export const findUserFile = async (userId: number, filename: string) => {
       },
     },
   });
-  if (!savedFile) return null;
+  if (!savedFile) return { success: false };
 
   const filePath = path.join(Credentials.DIR_ADDR!, savedFile.generatedname);
-  return {savedFile,filePath};
+  return { success: true, savedFile, filePath };
 };
