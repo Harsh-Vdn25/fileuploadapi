@@ -69,7 +69,7 @@ export const updateFile = async (req: Request, res: Response) => {
   if (!filename || typeof filename !== "string")
     return res.status(400).json({ message: "File not found" });
   const userId = (req as any).userId;
-  const generatedname = randomID(file.filename);
+  const generatedname = randomID(file.originalname);
   var uploaded = false;
   try {
     const saved = await findUserFile(userId, filename);
