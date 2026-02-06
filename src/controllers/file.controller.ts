@@ -1,8 +1,5 @@
 import { Request, Response } from "express";
-import fs from "node:fs/promises";
 import { prisma } from "../config/prismaClient";
-import path from "node:path";
-import { Credentials } from "../config/creds";
 import { findUserFile } from "../helpers/fileHelper";
 import { isPrismaUniqueError } from "../helpers/prismaError";
 import { randomUUID } from "node:crypto";
@@ -17,7 +14,7 @@ export const uploadFile = async (req: Request, res: Response) => {
   const file = req.file;
   const userId = (req as any).userId;
   if (!file) return res.status(400).json({ message: "No file sent." });
-  const generatedname = randomID(file.filename);
+  const generatedname = randomID(file.originalname);
   try {
     await prisma.file.create({
       data: {
@@ -30,7 +27,6 @@ export const uploadFile = async (req: Request, res: Response) => {
     res.status(200).json({ message: "Saved the file sucessfully" });
   } catch (err) {
     if (isPrismaUniqueError(err)) {
-      await storage.delete(generatedname);
       return res.status(409).json({ message: "Duplicate file." });
     }
 
@@ -55,7 +51,12 @@ export const getFile = async (req: Request, res: Response) => {
         .status(404)
         .json({ message: "File with the given name doesnot exist" });
 
-    res.download(saved.filePath!);
+    const stream = await storage.get(saved.savedFile?.generatedname!);
+    res.setHeader(
+      "Content-Type",
+      `filename = ${saved.savedFile?.originalname}`
+    )
+    stream.pipe(res);
   } catch (err) {
     res.status(500).json({ message: "Serverside error" });
   }
@@ -69,13 +70,15 @@ export const updateFile = async (req: Request, res: Response) => {
     return res.status(400).json({ message: "File not found" });
   const userId = (req as any).userId;
   const generatedname = randomID(file.filename);
+  var uploaded = false;
   try {
     const saved = await findUserFile(userId, filename);
 
     if (!saved.success) {
       return res.status(404).json({ message: "File does not exist." });
     }
-    
+
+    await storage.save(file, generatedname);
     await prisma.file.update({
       where: {
         originalname_ownerid: {
@@ -84,15 +87,18 @@ export const updateFile = async (req: Request, res: Response) => {
         },
       },
       data: {
-        generatedname: file?.filename,
+        generatedname: generatedname,
       },
     });
 
-    await fs.unlink(saved.filePath!);
+    await storage.delete(saved.savedFile?.generatedname!);
 
     res.status(200).json({ message: "File updated." });
   } catch (err) {
-    return res.status(409).json({ message: "Duplicate file name" });
+    if (uploaded) {
+      await storage.delete(generatedname);
+    }
+    return res.status(409).json({ message: "Internal server error" });
   }
 };
 
