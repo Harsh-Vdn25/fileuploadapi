@@ -1,26 +1,27 @@
-export class fixedWindow{
-    private windowSize: number;
-    private noOfRequests: number;
-    private windowStart: number;
-    private requestsLimit: number;
-    constructor(windowSize:number,requestsLimit:number){
-        this.windowSize = windowSize;
-        this.requestsLimit = requestsLimit;
-        this.windowStart = Date.now();
-        this.noOfRequests = 1;
+export class FixedWindow {
+  private windowSize: number;
+  private windowStart: number;
+  private requestsLimit: number;
+  private requests: number[];
+  private reqTime: number;
+  constructor(windowSize: number, requestsLimit: number) {
+    this.windowSize = windowSize;
+    this.requestsLimit = requestsLimit;
+    this.windowStart = Date.now();
+    this.requests = [];
+    this.reqTime = 0;
+  }
+  allowRequest() {
+    const now = Date.now();
+    this.reqTime = now - this.windowStart;
+    while(this.requests.length > 0 && this.requests[0]! < this.reqTime - this.windowSize * 1000){
+      this.requests.shift();
     }
-    allowRequest(){
-        const now = Date.now();
-
-        if(now - this.windowStart > this.windowSize * 1000){
-            this.noOfRequests = 0;
-            this.windowStart = now;
-        }else{
-            this.noOfRequests = this.noOfRequests + 1;
-        }
-        if(this.requestsLimit < this.noOfRequests){
-            return false;
-        }
-        return true;
+    if (this.requests.length >= this.requestsLimit) {
+      return false;
+    } else{
+      this.requests.push(this.reqTime);
     }
+    return true;
+  }
 }

@@ -1,5 +1,5 @@
 import { Request,Response,NextFunction } from "express";
-import { fixedWindow } from "../utils/fixedWindow";
+import { FixedWindow } from "../utils/fixedWindow";
 
 const rates = new Map();
 
@@ -10,7 +10,10 @@ export const rateLimiter = (
 ) => {
     const userId = Number((req as any).userId);
     if(!rates.has(userId)){
-        rates.set(userId,new fixedWindow(1,2));
+        rates.set(userId,new FixedWindow(10,2));
+        if(!rates.get(userId).allowRequest()){
+            return res.status(429).send("Too many requests");
+        }
     }else{
         const user = rates.get(userId);
         if(!user.allowRequest()){
