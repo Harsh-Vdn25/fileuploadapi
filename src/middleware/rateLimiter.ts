@@ -1,5 +1,5 @@
 import { Request,Response,NextFunction } from "express";
-import { FixedWindow } from "../utils/fixedWindow";
+import { SlidingWindow } from "../utils/slidingWindow";
 
 const rates = new Map();
 
@@ -10,7 +10,7 @@ export const rateLimiter = (
 ) => {
     const userId = Number((req as any).userId);
     if(!rates.has(userId)){
-        rates.set(userId,new FixedWindow(10,2));
+        rates.set(userId,new SlidingWindow(10,2));
         if(!rates.get(userId).allowRequest()){
             return res.status(429).send("Too many requests");
         }

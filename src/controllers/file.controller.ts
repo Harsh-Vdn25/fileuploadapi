@@ -15,17 +15,24 @@ export const uploadFile = async (req: Request, res: Response) => {
   const userId = (req as any).userId;
   if (!file) return res.status(400).json({ message: "No file sent." });
   const generatedname = randomID(file.originalname);
+  var uploaded = false;
   try {
+    await storage.save(file, generatedname);
+    uploaded = true;
     await prisma.file.create({
+      //if this fails we can delete the S3 file
       data: {
         generatedname: generatedname,
         originalname: file.originalname,
         ownerid: userId,
       },
     });
-    await storage.save(file, generatedname);
     res.status(200).json({ message: "Saved the file sucessfully" });
   } catch (err) {
+    if (uploaded) {
+      //having it here deletes the file even if the prismaunique const fails
+      await storage.delete(generatedname);
+    }
     if (isPrismaUniqueError(err)) {
       return res.status(409).json({ message: "Duplicate file." });
     }
@@ -52,10 +59,11 @@ export const getFile = async (req: Request, res: Response) => {
         .json({ message: "File with the given name doesnot exist" });
 
     const stream = await storage.get(saved.savedFile?.generatedname!);
+    res.setHeader("Content-Type", "application/octet-stream");
     res.setHeader(
-      "Content-Type",
-      `filename = ${saved.savedFile?.originalname}`
-    )
+      "Content-Disposition",
+      `inline; filename="${saved.savedFile?.originalname}"`,
+    );
     stream.pipe(res);
   } catch (err) {
     res.status(500).json({ message: "Serverside error" });
@@ -79,6 +87,7 @@ export const updateFile = async (req: Request, res: Response) => {
     }
 
     await storage.save(file, generatedname);
+    uploaded = true;
     await prisma.file.update({
       where: {
         originalname_ownerid: {
@@ -114,15 +123,13 @@ export const deleteFile = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "File doesn't exist." });
 
     await storage.delete(saved.savedFile?.generatedname!);
-    await prisma.$transaction(async (tx) => {
-      await tx.file.delete({
-        where: {
-          originalname_ownerid: {
-            ownerid: userId,
-            originalname: saved.savedFile?.originalname!,
-          },
+    await prisma.file.delete({
+      where: {
+        originalname_ownerid: {
+          ownerid: userId,
+          originalname: saved.savedFile?.originalname!,
         },
-      });
+      },
     });
 
     res.status(200).json({ message: "File deleted." });

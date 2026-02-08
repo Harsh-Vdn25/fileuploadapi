@@ -1,4 +1,4 @@
-export class FixedWindow {
+export class SlidingWindow {
   private windowSize: number;
   private windowStart: number;
   private requestsLimit: number;
