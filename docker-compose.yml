@@ -1,0 +1,25 @@
+
+services:
+  app:  
+    build: .
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: "postgresql://postgres:postgres@db:5432/mydb?schema=public"
+      PRISMA_CLIENT_ENGINE_TYPE: binary
+    command: sh -c "npx prisma migrate deploy && node dist/server.js"
+  db:
+    image: postgres:16-alpine
+    environment:
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
+        POSTGRES_DB: mydb
+    volumes:
+      - pgdata:/var/lib/postgresl/data
+volumes:
+  pgdata:
+

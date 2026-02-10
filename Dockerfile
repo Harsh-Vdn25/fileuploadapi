@@ -6,7 +6,7 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
  
-RUN npm install
+RUN npm ci
 
 COPY prisma ./prisma
 
@@ -16,21 +16,22 @@ COPY . .
 
 RUN npm run build
 
+RUN npm prune --omit=dev
 #--Stage2:Production--
 
 FROM node:20-slim
-
-RUN apt-get update -y && apt-get install -y openssl
 
 WORKDIR /app
 
 COPY package.json package-lock.json ./
 
-RUN npm install --only=production
+COPY --from=builder /app/node_modules ./node_modules
 
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/prisma ./prisma
 
 COPY --from=builder /app/dist ./dist
+
+ENV PRISMA_CLIENT_ENGINE_TYPE=binary
 
 EXPOSE 5000
 

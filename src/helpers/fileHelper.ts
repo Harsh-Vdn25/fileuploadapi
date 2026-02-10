@@ -1,6 +1,4 @@
-import { Credentials } from "../config/creds";
 import { prisma } from "../config/prismaClient";
-import path from "path";
 
 export const findUserFile = async (userId: number, filename: string) => {
   const savedFile = await prisma.file.findUnique({
@@ -13,6 +11,5 @@ export const findUserFile = async (userId: number, filename: string) => {
   });
   if (!savedFile) return { success: false };
 
-  const filePath = path.join(Credentials.DIR_ADDR!, savedFile.generatedname);
-  return { success: true, savedFile, filePath };
+  return { success: true, savedFile };
 };

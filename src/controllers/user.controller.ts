@@ -30,8 +30,8 @@ export const signup = async (req: Request, res: Response) => {
 };
 
 export const signin = async (req: Request, res: Response) => {
+  const { username, password } = req.body;
   try {
-    const { username, password } = req.body;
     const user = await prisma.user.findUnique({ where: { username } });
     if (!user) return res.status(404).json({ message: "User Not Found" });
 

@@ -4,4 +4,3 @@ uploads/
 dist/
 build/
 /src/generated/prisma
-dockercompose.yml
