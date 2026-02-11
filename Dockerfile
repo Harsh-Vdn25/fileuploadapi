@@ -31,8 +31,6 @@ COPY --from=builder /app/prisma ./prisma
 
 COPY --from=builder /app/dist ./dist
 
-ENV PRISMA_CLIENT_ENGINE_TYPE=binary
-
 EXPOSE 5000
 
 CMD [ "node","dist/server.js" ]

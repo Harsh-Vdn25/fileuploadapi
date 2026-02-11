@@ -73,7 +73,7 @@ export const getFile = async (req: Request, res: Response) => {
         .status(404)
         .json({ message: "File with the given name doesnot exist" });
 
-    const s3Key = saved.savedFile?.versions[0]?.s3Key;
+    const s3Key = saved.savedFile?.latest?.s3Key;
     const stream = await storage.get(s3Key!);
     res.setHeader("Content-Type", "application/octet-stream");
     res.setHeader(
@@ -100,7 +100,7 @@ export const updateFile = async (req: Request, res: Response) => {
     if (!saved.success) {
       return res.status(404).json({ message: "File does not exist." });
     }
-    const versionNo = saved.savedFile?.versions[0]?.version! + 1;
+    const versionNo = saved.savedFile?.latest?.version! + 1;
     generatedname = randomID(file.originalname, versionNo);
     await storage.save(file, generatedname);
     uploaded = true;
@@ -127,7 +127,7 @@ export const updateFile = async (req: Request, res: Response) => {
     if (uploaded) {
       await storage.delete(generatedname);
     }
-    return res.status(409).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -139,20 +139,33 @@ export const deleteFile = async (req: Request, res: Response) => {
   const userId = (req as any).userId;
 
   try {
-    const saved = await findUserFile(userId, filename);
-    if (!saved.success)
+    const saved = await prisma.file.findUnique({
+      where:{
+        originalname_ownerid:{
+          originalname: filename,
+          ownerid: userId
+        }
+      },
+      include:{
+        versions: true
+      }
+    })
+    if (!saved?.id)
       return res.status(404).json({ message: "File doesn't exist." });
-
-    await storage.delete(saved.savedFile?.versions[0]?.s3Key!);
     
     await prisma.file.delete({
       where: {
         originalname_ownerid: {
           ownerid: userId,
-          originalname: saved.savedFile?.originalname!,
+          originalname: saved.originalname,
         },
       },
     });
+    //Delete all files
+    Promise.all(
+      saved.versions.map(x=>storage.delete(x.s3Key))
+    )
+
     res.status(200).json({ message: "File deleted." });
   } catch (err) {
     console.log(err);
