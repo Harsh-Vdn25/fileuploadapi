@@ -15,18 +15,31 @@ datasource db {
 
 
 model User{
-  id            Int         @id @default(autoincrement())
-  username      String      @unique
+  id            Int                 @id @default(autoincrement())
+  username      String              @unique
   password      String      
-  createdAt     DateTime    @default(now())
+  createdAt     DateTime            @default(now())
   Files         File[]      
 }
 
 model File{
-  id               String      @default(uuid())
+  id               String           @id @default(uuid())
   originalname     String      
-  generatedname    String      @unique     
-  owner            User        @relation(fields: [ownerid],references: [id])
+  owner            User             @relation(fields: [ownerid],references: [id])
   ownerid          Int
+  latestId         String?          @unique
+  latest           FileVersion?     @relation("latestVersion",fields: [latestId],references: [id])
+  versions         FileVersion[]    @relation("FileVersions")
   @@unique([originalname,ownerid])
+}
+
+model FileVersion{
+  id              String            @id @default(uuid())
+  fileId          String
+  version         Int
+  s3Key           String            @unique
+  createdAt       DateTime          @default(now())
+  file            File              @relation("FileVersions",fields: [fileId],references: [id],onDelete: Cascade)
+  latest          File?             @relation("latestVersion")
+  @@unique([fileId,version])
 }

@@ -1,7 +1,7 @@
-import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
+import { Prisma } from "@prisma/client";
 
 export const isPrismaUniqueError = (e: unknown): boolean => {
   return (
-    e instanceof PrismaClientKnownRequestError && e.code === "P2002"
+    e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002"
   );
 };

@@ -5,8 +5,8 @@ import { isPrismaUniqueError } from "../helpers/prismaError";
 import { randomUUID } from "node:crypto";
 import { S3Storage } from "../storage/S3Storage";
 
-const randomID = (file: string) => {
-  return `${randomUUID()}-${file}`;
+const randomID = (file: string, version: number) => {
+  return `${randomUUID()}-${file}/${version}`;
 };
 const storage = new S3Storage();
 
@@ -14,19 +14,34 @@ export const uploadFile = async (req: Request, res: Response) => {
   const file = req.file;
   const userId = (req as any).userId;
   if (!file) return res.status(400).json({ message: "No file sent." });
-  const generatedname = randomID(file.originalname);
+  const generatedname = randomID(file.originalname, 1);
   var uploaded = false;
   try {
     await storage.save(file, generatedname);
     uploaded = true;
-    await prisma.file.create({
-      //if this fails we can delete the S3 file
-      data: {
-        generatedname: generatedname,
-        originalname: file.originalname,
-        ownerid: userId,
-      },
+    await prisma.$transaction(async(tx) => {
+      const fileV1 = await tx.file.create({
+        //if this fails we can delete the S3 file
+        data: {
+          originalname: file.originalname,
+          ownerid: userId,
+          versions: {
+            create: {
+              version: 1,
+              s3Key: generatedname,
+            },
+          },
+        },
+        include: { versions: true },
+      });
+
+      //update the latestId so that latest version can be retrieved
+      await tx.file.update({
+        where: { id: fileV1.id },
+        data: { latestId: fileV1.versions[0]?.id! },
+      });
     });
+
     res.status(200).json({ message: "Saved the file sucessfully" });
   } catch (err) {
     if (uploaded) {
@@ -58,7 +73,8 @@ export const getFile = async (req: Request, res: Response) => {
         .status(404)
         .json({ message: "File with the given name doesnot exist" });
 
-    const stream = await storage.get(saved.savedFile?.generatedname!);
+    const s3Key = saved.savedFile?.versions[0]?.s3Key;
+    const stream = await storage.get(s3Key!);
     res.setHeader("Content-Type", "application/octet-stream");
     res.setHeader(
       "Content-Disposition",
@@ -77,31 +93,35 @@ export const updateFile = async (req: Request, res: Response) => {
   if (!filename || typeof filename !== "string")
     return res.status(400).json({ message: "File not found" });
   const userId = (req as any).userId;
-  const generatedname = randomID(file.originalname);
+  var generatedname = "";
   var uploaded = false;
   try {
     const saved = await findUserFile(userId, filename);
-
     if (!saved.success) {
       return res.status(404).json({ message: "File does not exist." });
     }
-
+    const versionNo = saved.savedFile?.versions[0]?.version! + 1;
+    generatedname = randomID(file.originalname, versionNo);
     await storage.save(file, generatedname);
     uploaded = true;
-    await prisma.file.update({
-      where: {
-        originalname_ownerid: {
-          originalname: filename,
-          ownerid: userId,
+    //To ensure atomicity
+    await prisma.$transaction(async (tx) => {
+      const newVersion = await tx.fileVersion.create({
+        data: {
+          fileId: saved.savedFile?.id!,
+          version: versionNo,
+          s3Key: generatedname,
         },
-      },
-      data: {
-        generatedname: generatedname,
-      },
+      });
+      await tx.file.update({
+        where: {
+          id: newVersion.fileId,
+        },
+        data: {
+          latestId: newVersion.id,
+        },
+      });
     });
-
-    await storage.delete(saved.savedFile?.generatedname!);
-
     res.status(200).json({ message: "File updated." });
   } catch (err) {
     if (uploaded) {
@@ -111,6 +131,7 @@ export const updateFile = async (req: Request, res: Response) => {
   }
 };
 
+//Hard delete
 export const deleteFile = async (req: Request, res: Response) => {
   const filename = req.params.filename;
   if (!filename || typeof filename !== "string")
@@ -122,7 +143,8 @@ export const deleteFile = async (req: Request, res: Response) => {
     if (!saved.success)
       return res.status(404).json({ message: "File doesn't exist." });
 
-    await storage.delete(saved.savedFile?.generatedname!);
+    await storage.delete(saved.savedFile?.versions[0]?.s3Key!);
+    
     await prisma.file.delete({
       where: {
         originalname_ownerid: {
@@ -131,9 +153,9 @@ export const deleteFile = async (req: Request, res: Response) => {
         },
       },
     });
-
     res.status(200).json({ message: "File deleted." });
   } catch (err) {
+    console.log(err);
     res.status(500).json({ message: "Internal server error" });
   }
 };

@@ -14,7 +14,6 @@ export const inputCheck = (req: Request, res: Response, next: NextFunction) => {
         errors: parsedData.error.flatten(),
     });
   }
-  console.log(req.body);
   req.body = parsedData.data;
   next();
 };

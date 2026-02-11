@@ -8,6 +8,14 @@ export const findUserFile = async (userId: number, filename: string) => {
         ownerid: userId,
       },
     },
+    include: {
+      versions: {
+        orderBy: {
+          version: "desc",
+        },
+        take: 1,
+      },
+    },
   });
   if (!savedFile) return { success: false };
 

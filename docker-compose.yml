@@ -10,7 +10,6 @@ services:
       - db
     environment:
       DATABASE_URL: "postgresql://postgres:postgres@db:5432/mydb?schema=public"
-      PRISMA_CLIENT_ENGINE_TYPE: binary
     command: sh -c "npx prisma migrate deploy && node dist/server.js"
   db:
     image: postgres:16-alpine
