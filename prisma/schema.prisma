@@ -28,6 +28,8 @@ model File{
   originalname     String      
   owner            User             @relation(fields: [ownerid],references: [id])
   ownerid          Int
+  mimeTypw         String?
+  isPrivate        Boolean          @default(false)
   latestId         String?          @unique
   latest           FileVersion?     @relation("latestVersion",fields: [latestId],references: [id])
   versions         FileVersion[]    @relation("FileVersions")
@@ -43,4 +45,11 @@ model FileVersion{
   file            File              @relation("FileVersions",fields: [fileId],references: [id],onDelete: Cascade)
   latest          File?             @relation("latestVersion")
   @@unique([fileId,version])
+}
+
+model pendingDelete{
+  id              String            @id @default(uuid())
+  s3Key           String            @unique
+  attempts        Int               @default(0)
+  createdAt       DateTime          @default(now())
 }

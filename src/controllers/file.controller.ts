@@ -6,15 +6,16 @@ import {
   updateService,
   uploadService,
 } from "../services/file.service";
-import { storage } from "../services/file.service";
+import { storage } from "../storage/S3Storage";
 
 export const uploadFile = async (req: Request, res: Response) => {
   const file = req.file;
   const userId = (req as any).userId;
-  if (!file) return res.status(400).json({ message: "No file sent." });
+  const isPrivate = req.body;
+  if (!file || typeof isPrivate === 'boolean') return res.status(400).json({ message: "Send all the required information." });
 
   try {
-    const result = await uploadService(file, userId);
+    const result = await uploadService(file, userId,isPrivate);
     if (result === "INCOMPLETE_DETAILS") {
       return res
         .status(400)

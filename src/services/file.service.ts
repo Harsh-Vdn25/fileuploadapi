@@ -1,16 +1,15 @@
 import { randomUUID } from "crypto";
 import { prisma } from "../config/prismaClient";
-import { S3Storage } from "../storage/S3Storage";
+import { storage } from "../storage/S3Storage";
 import { isPrismaUniqueError } from "../helpers/prismaError";
 
 const randomID = (file: string, version: number) => {
   return `${randomUUID()}-${file}/${version}`;
 };
-export const storage = new S3Storage();
-
 export const uploadService = async (
   file: Express.Multer.File,
   ownerId: number,
+  isPrivate: boolean,
 ): Promise<"INCOMPLETE_DETAILS" | "DUPLICATE_FILE" | "SUCCESS"> => {
   if (!ownerId || typeof ownerId !== "number" || !file) {
     return "INCOMPLETE_DETAILS";
@@ -25,6 +24,7 @@ export const uploadService = async (
         data: {
           originalname: file.originalname,
           ownerid: ownerId,
+          mimeTypw: file.mimetype,
           versions: {
             create: {
               version: 1,
@@ -122,8 +122,11 @@ export const deleteAllService = async (
         },
       },
     });
-    //Delete all files
-    await Promise.all(saved.versions.map((x) => storage.delete(x.s3Key)));
+    //Delete these files later
+    const dataToDelete = saved.versions.map((x) => ({ s3Key: x.s3Key }));
+    await prisma.pendingDelete.createMany({
+      data: dataToDelete,
+    });
     return "SUCCESS";
   } catch (err) {
     throw err;

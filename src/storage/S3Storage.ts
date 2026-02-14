@@ -43,3 +43,5 @@ export class S3Storage implements StorageProvider {
     return res.Body as Readable;
   }
 }
+
+export const storage = new S3Storage();
