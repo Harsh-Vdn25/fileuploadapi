@@ -1,4 +1,4 @@
-FROM node:20-slim AS builder 
+FROM node:18-slim AS builder 
 
 RUN apt-get update -y && apt-get install -y openssl
 
@@ -19,7 +19,9 @@ RUN npm run build
 RUN npm prune --omit=dev
 #--Stage2:Production--
 
-FROM node:20-slim
+FROM node:18-slim
+
+RUN apt-get update -y && apt-get install -y openssl
 
 WORKDIR /app
 
