@@ -10,9 +10,9 @@ export const storage = new S3Storage();
 
 export const uploadService = async (
   file: Express.Multer.File,
-  userId: number,
-):Promise<"INCOMPLETE_DETAILS"|"DUPLICATE_FILE"|"SUCCESS"> => {
-  if (!userId || typeof userId !== "number" || !file) {
+  ownerId: number,
+): Promise<"INCOMPLETE_DETAILS" | "DUPLICATE_FILE" | "SUCCESS"> => {
+  if (!ownerId || typeof ownerId !== "number" || !file) {
     return "INCOMPLETE_DETAILS";
   }
   var uploaded = false;
@@ -24,7 +24,7 @@ export const uploadService = async (
       const fileV1 = await tx.file.create({
         data: {
           originalname: file.originalname,
-          ownerid: userId,
+          ownerid: ownerId,
           versions: {
             create: {
               version: 1,
@@ -51,7 +51,7 @@ export const uploadService = async (
       await storage.delete(generatedname);
     }
     if (isPrismaUniqueError(err)) {
-        return "DUPLICATE_FILE";
+      return "DUPLICATE_FILE";
     }
     throw err;
   }
@@ -60,7 +60,7 @@ export const updateService = async (
   file: Express.Multer.File,
   fileId: string,
   version: number,
-):Promise<"INCOMPLETE_DETAILS"|"SUCCESS"> => {
+): Promise<"INCOMPLETE_DETAILS" | "SUCCESS"> => {
   if (!fileId || typeof fileId !== "string" || !file) {
     return "INCOMPLETE_DETAILS";
   }
@@ -79,18 +79,53 @@ export const updateService = async (
         },
       });
       await tx.file.update({
-        where:{
-            id: update.fileId
-        },data:{
-            latestId: update.id
-        }
+        where: {
+          id: update.fileId,
+        },
+        data: {
+          latestId: update.id,
+        },
       });
     });
     return "SUCCESS";
   } catch (err) {
-    if(uploaded){
-        await storage.delete(generatedname);
+    if (uploaded) {
+      await storage.delete(generatedname);
     }
+    throw err;
+  }
+};
+
+export const deleteAllService = async (
+  ownerId: number,
+  filename: string,
+): Promise<"NO_FILE" | "SUCCESS"> => {
+  try {
+    const saved = await prisma.file.findUnique({
+      where: {
+        originalname_ownerid: {
+          originalname: filename,
+          ownerid: ownerId,
+        },
+      },
+      include: {
+        versions: true,
+      },
+    });
+    if (!saved?.id) return "NO_FILE";
+
+    await prisma.file.delete({
+      where: {
+        originalname_ownerid: {
+          ownerid: ownerId,
+          originalname: saved.originalname,
+        },
+      },
+    });
+    //Delete all files
+    await Promise.all(saved.versions.map((x) => storage.delete(x.s3Key)));
+    return "SUCCESS";
+  } catch (err) {
     throw err;
   }
 };

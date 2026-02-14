@@ -1,7 +1,11 @@
 import { Request, Response } from "express";
 import { prisma } from "../config/prismaClient";
 import { findUserFile } from "../helpers/fileHelper";
-import { updateService, uploadService } from "../services/file.service";
+import {
+  deleteAllService,
+  updateService,
+  uploadService,
+} from "../services/file.service";
 import { storage } from "../services/file.service";
 
 export const uploadFile = async (req: Request, res: Response) => {
@@ -64,7 +68,7 @@ export const updateFile = async (req: Request, res: Response) => {
 
   if (!filename || typeof filename !== "string")
     return res.status(400).json({ message: "File not found" });
-  
+
   const userId = (req as any).userId;
   try {
     const saved = await findUserFile(userId, filename);
@@ -95,30 +99,10 @@ export const deleteFile = async (req: Request, res: Response) => {
   const userId = (req as any).userId;
 
   try {
-    const saved = await prisma.file.findUnique({
-      where: {
-        originalname_ownerid: {
-          originalname: filename,
-          ownerid: userId,
-        },
-      },
-      include: {
-        versions: true,
-      },
-    });
-    if (!saved?.id)
-      return res.status(404).json({ message: "File doesn't exist." });
-
-    await prisma.file.delete({
-      where: {
-        originalname_ownerid: {
-          ownerid: userId,
-          originalname: saved.originalname,
-        },
-      },
-    });
-    //Delete all files
-    Promise.all(saved.versions.map((x) => storage.delete(x.s3Key)));
+    const result = await deleteAllService(userId, filename);
+    if (result === "NO_FILE") {
+      return res.status(400).json({ message: "File doesn't exist." });
+    }
 
     res.status(200).json({ message: "File deleted." });
   } catch (err) {

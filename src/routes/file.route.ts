@@ -14,4 +14,4 @@ export const fileRouter = express.Router();
 fileRouter.post("/", verifyToken, rateLimiter,upload.single("file"), uploadFile);
 fileRouter.get("/:filename", verifyToken,rateLimiter, getFile);
 fileRouter.put("/:filename", verifyToken,rateLimiter, upload.single("file"), updateFile);
-fileRouter.delete("/:filename", verifyToken,rateLimiter, deleteFile);
+fileRouter.delete("/allVersions/:filename", verifyToken,rateLimiter, deleteFile);
