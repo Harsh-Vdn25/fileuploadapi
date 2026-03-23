@@ -10,8 +10,7 @@ export const inputCheck = (req: Request, res: Response, next: NextFunction) => {
   const parsedData = inputSchema.safeParse(req.body);
   if (!parsedData.success) {
     return res.status(400).json({ 
-        message: "Invalid input",
-        errors: parsedData.error.flatten(),
+        message: "Invalid input"
     });
   }
   req.body = parsedData.data;
