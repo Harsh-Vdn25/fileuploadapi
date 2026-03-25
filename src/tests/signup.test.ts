@@ -64,11 +64,18 @@ describe("POST/api/user/signup", () => {
       createdAt: new Date(),
     });
 
+    vi.spyOn(prismaClient.user,"create");
     const res = await request(app).post("/api/user/signup").send({
       username: "Harsha",
       password: "mypass",
     });
 
+    expect(prismaClient.user.create).toHaveBeenCalledWith({
+      data:{
+        username: "Harsha",
+        password: "hash_pass"
+      }
+    })
     expect(res.statusCode).toBe(200);
     expect(res.body.message).toBe("Signed up successfully.");
     expect(res.body.token).toBe("fake_token");

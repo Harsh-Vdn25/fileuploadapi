@@ -6,7 +6,6 @@ import {
   uploadService,
 } from "../services/file.service";
 import { storage } from "../storage/S3Storage";
-import { JwtPayload } from "jsonwebtoken";
 import { prisma } from "../config/prismaClient";
 
 export const uploadFile = async (req: Request, res: Response) => {

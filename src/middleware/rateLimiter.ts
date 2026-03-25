@@ -12,6 +12,7 @@ export const rateLimiter = (
     if(!rates.has(userId)){
         rates.set(userId,new SlidingWindow(10,5));
         if(!rates.get(userId).allowRequest()){
+            //allowRequest here also records the first request along with tbe checking
             return res.status(429).send("Too many requests");
         }
     }else{
