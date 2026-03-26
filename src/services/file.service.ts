@@ -3,17 +3,13 @@ import { prisma } from "../config/prismaClient";
 import { storage } from "../storage/S3Storage";
 import { isPrismaUniqueError } from "../helpers/prismaError";
 
-const randomID = (file: string, version: number) => {
+export const randomID = (file: string, version: number) => {
   return `${randomUUID()}-${file}/${version}`;
 };
 export const uploadService = async (
   file: Express.Multer.File,
-  ownerId: number,
-  isPrivate: boolean,
-): Promise<"INCOMPLETE_DETAILS" | "DUPLICATE_FILE" | "SUCCESS"> => {
-  if (!ownerId || typeof ownerId !== "number" || !file) {
-    return "INCOMPLETE_DETAILS";
-  }
+  ownerId: number
+): Promise<"DUPLICATE_FILE" | "SUCCESS"> => {
   var uploaded = false;
   const generatedname = randomID(file.originalname, 1);
   try {
@@ -60,10 +56,7 @@ export const updateService = async (
   file: Express.Multer.File,
   fileId: string,
   version: number,
-): Promise<"INCOMPLETE_DETAILS" | "SUCCESS"> => {
-  if (!fileId || typeof fileId !== "string" || !file) {
-    return "INCOMPLETE_DETAILS";
-  }
+): Promise<"SUCCESS"> => {
   const generatedname = randomID(file.originalname, version);
   var uploaded = false;
   try {

@@ -1,12 +1,9 @@
 import { expect, describe, it, vi, beforeEach } from "vitest";
 import request from "supertest";
-import { prismaClient } from "../__mocks__/db";
+import { mockPrisma } from "./setup";
 import { createToken } from "../helpers/createToken";
 import { hashPassword } from "../helpers/hashPassword";
 
-vi.mock("../config/prismaClient", () => ({
-  prisma: prismaClient,
-}));
 vi.mock("../helpers/createToken", () => ({
   createToken: vi.fn(),
 }));
@@ -38,7 +35,7 @@ describe("POST/api/user/signup", () => {
   });
 
   it("Inform user if the user already present", async () => {
-    prismaClient.user.findUnique.mockResolvedValue({
+    mockPrisma.user.findUnique.mockResolvedValue({
       id: 1,
       username: "Harsha",
       password: "123456",
@@ -54,23 +51,22 @@ describe("POST/api/user/signup", () => {
   });
 
   it("creates a user and returns a token", async () => {
-    prismaClient.user.findUnique.mockResolvedValue(null);
+    mockPrisma.user.findUnique.mockResolvedValue(null);
     vi.mocked(createToken).mockReturnValue("fake_token");//this is not asynchronous in the code
     vi.mocked(hashPassword).mockResolvedValue("hash_pass");
-    prismaClient.user.create.mockResolvedValue({
+    mockPrisma.user.create.mockResolvedValue({
       id: 1,
       username: "harsha",
       password: "hash_pass",
       createdAt: new Date(),
     });
 
-    vi.spyOn(prismaClient.user,"create");
     const res = await request(app).post("/api/user/signup").send({
       username: "Harsha",
       password: "mypass",
     });
 
-    expect(prismaClient.user.create).toHaveBeenCalledWith({
+    expect(mockPrisma.user.create).toHaveBeenCalledWith({
       data:{
         username: "Harsha",
         password: "hash_pass"

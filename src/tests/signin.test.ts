@@ -1,13 +1,9 @@
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
-import { prismaClient } from "../__mocks__/db";
+import { mockPrisma } from "./setup";
 import { createToken } from "../helpers/createToken";
 import bcrypt from "bcrypt";
 
-//mock the required then import the app
-vi.mock("../config/prismaClient", () => ({
-  prisma: prismaClient,
-}));
 
 vi.mock("../helpers/createToken", () => ({
   createToken: vi.fn(),
@@ -40,7 +36,7 @@ describe("POST /api/user/signin", () => {
   });
 
   it("returns error if user doesn't exist", async () => {
-    await prismaClient.user.findUnique.mockResolvedValue(null);
+    await mockPrisma.user.findUnique.mockResolvedValue(null);
 
     const res = await request(app).post("/api/user/signin").send({
       username: "Harsha",
@@ -51,7 +47,7 @@ describe("POST /api/user/signin", () => {
   });
 
   it("reject request if user exists but password is incorrect",async()=>{
-    vi.mocked(prismaClient.user.findUnique).mockResolvedValue({
+    vi.mocked(mockPrisma.user.findUnique).mockResolvedValue({
         id: 1,
         username: "Harsha",
         password: "hashpass",
@@ -69,7 +65,7 @@ describe("POST /api/user/signin", () => {
   })
 
   it("return token if the user credentials are correct",async()=>{
-    vi.mocked(prismaClient.user.findUnique).mockResolvedValue({
+    vi.mocked(mockPrisma.user.findUnique).mockResolvedValue({
         id: 1,
         username: "Harsha",
         password: "hashpass",

@@ -11,20 +11,14 @@ import { prisma } from "../config/prismaClient";
 export const uploadFile = async (req: Request, res: Response) => {
   const file = req.file;
   const userId = (req as any).userId;
-  const isPrivate = req.body;
-  if (!file || typeof isPrivate === "boolean")
+  const {isPrivate} = req.body;
+  if (!file || typeof isPrivate !== "boolean")
     return res
       .status(400)
       .json({ message: "Send all the required information." });
 
   try {
-    const result = await uploadService(file, userId, isPrivate);
-    if (result === "INCOMPLETE_DETAILS") {
-      return res
-        .status(400)
-        .json({ message: "please fill the details properly." });
-    }
-
+    const result = await uploadService(file, userId);
     if (result === "DUPLICATE_FILE") {
       return res.status(400).json({ message: "Duplicate file." });
     }
@@ -32,7 +26,6 @@ export const uploadFile = async (req: Request, res: Response) => {
     res.status(200).json({ message: "Saved the file sucessfully" });
   } catch (err: any) {
     return res.status(500).json({
-      error: err,
       message: "Something went wrong.",
     });
   }
@@ -81,13 +74,7 @@ export const updateFile = async (req: Request, res: Response) => {
     }
 
     const versionNo = saved.savedFile?.latest?.version! + 1;
-    const result = await updateService(file, saved.savedFile?.id!, versionNo);
-
-    if (result === "INCOMPLETE_DETAILS") {
-      return res
-        .status(400)
-        .json({ message: "please fill the details properly." });
-    }
+    await updateService(file, saved.savedFile?.id!, versionNo);
 
     res.status(200).json({ message: "File updated." });
   } catch (err) {
