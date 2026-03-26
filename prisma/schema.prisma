@@ -5,8 +5,8 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
-  binaryTargets = ["debian-openssl-1.1.x"]
+  provider      = "prisma-client-js"
+  binaryTargets = ["native","debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -28,7 +28,7 @@ model File{
   originalname     String      
   owner            User             @relation(fields: [ownerid],references: [id])
   ownerid          Int
-  mimeTypw         String?
+  mimeType         String?
   isPrivate        Boolean          @default(false)
   latestId         String?          @unique
   latest           FileVersion?     @relation("latestVersion",fields: [latestId],references: [id])

@@ -5,5 +5,5 @@ import { rateLimiter } from '../middleware/rateLimiter';
 
 export const userRouter = express.Router();
 
-userRouter.post('/signup',inputCheck,rateLimiter,signup);
-userRouter.post('/signin',inputCheck,rateLimiter,signin);
+userRouter.post('/signup',rateLimiter,inputCheck,signup);
+userRouter.post('/signin',rateLimiter,inputCheck,signin);

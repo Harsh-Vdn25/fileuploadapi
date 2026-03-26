@@ -13,9 +13,9 @@ import { rateLimiter } from "../middleware/rateLimiter";
 
 export const fileRouter = express.Router();
 
-fileRouter.post("/", verifyToken, rateLimiter,upload.single("file"), uploadFile);
-fileRouter.get("/:filename", verifyToken,rateLimiter, getFile);
-fileRouter.put("/:filename", verifyToken,rateLimiter, upload.single("file"), updateFile);
-fileRouter.delete("/allVersions/:filename", verifyToken,rateLimiter, deleteFile);
-fileRouter.get("/:filename/:version",verifyToken,rateLimiter,getVersion);
-fileRouter.delete("/latest/:filename",verifyToken,rateLimiter,deleteVersion);
+fileRouter.post("/", rateLimiter,verifyToken, upload.single("file"), uploadFile);
+fileRouter.get("/:filename", rateLimiter,verifyToken, getFile);
+fileRouter.put("/:filename", rateLimiter,verifyToken, upload.single("file"), updateFile);
+fileRouter.delete("/allVersions/:filename", rateLimiter,verifyToken, deleteFile);
+fileRouter.get("/:filename/:version",rateLimiter,verifyToken,getVersion);
+fileRouter.delete("/latest/:filename",rateLimiter,verifyToken,deleteVersion);
