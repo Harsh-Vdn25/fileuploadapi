@@ -11,19 +11,25 @@ import { prisma } from "../config/prismaClient";
 export const uploadFile = async (req: Request, res: Response) => {
   const file = req.file;
   const userId = (req as any).userId;
-  if (!file )
+  const isPrivate = req.body.isPrivate === "true";
+
+  if (!file)
     return res
       .status(400)
       .json({ message: "Send all the required information." });
 
   try {
-    const result = await uploadService(file, userId);
-    if (result === "DUPLICATE_FILE") {
+    const uploadRes = await uploadService(file, userId, isPrivate);
+
+    if (uploadRes.status === "DUPLICATE_FILE") {
       return res.status(400).json({ message: "Duplicate file." });
     }
 
-    res.status(200).json({ message: "Saved the file sucessfully" });
-  } catch (err: any) {
+    res.status(200).json({
+      message: "Saved the file sucessfully",
+      ...(isPrivate ? {} : { fileToken: uploadRes.fileToken }),
+    });
+  } catch {
     return res.status(500).json({
       message: "Something went wrong.",
     });
@@ -59,23 +65,26 @@ export const getFile = async (req: Request, res: Response) => {
 
 export const updateFile = async (req: Request, res: Response) => {
   const file = req.file;
-  const filename = req.params.filename;
+  const originalname = req.params.originalname;
   if (!file) return res.status(400).json({ message: "Please send the file" });
 
-  if (!filename || typeof filename !== "string")
+  if (!originalname || typeof originalname !== "string")
     return res.status(400).json({ message: "File not found" });
 
   const userId = (req as any).userId;
   try {
-    const saved = await findUserFile(userId, filename);
-    if (!saved.success) {
-      return res.status(404).json({ message: "File does not exist." });
-    }
+    const updateRes = await updateService(file, userId, originalname);
+    if (updateRes.status === "FILE_NOT_FOUND")
+      return res.status(400).json({ message: "No file with the given name." });
 
-    const versionNo = saved.savedFile?.latest?.version! + 1;
-    await updateService(file, saved.savedFile?.id!, versionNo);
+    if (updateRes.status === "DUPLICATE_FILE")
+      return res
+        .status(400)
+        .json({ message: "There already exists a file with this name." });
 
-    res.status(200).json({ message: "File updated." });
+    res
+      .status(200)
+      .json({ message: "File updated.", fileToken: updateRes.fileToken });
   } catch (err) {
     return res.status(500).json({ message: "Internal server error" });
   }
@@ -83,13 +92,13 @@ export const updateFile = async (req: Request, res: Response) => {
 
 //Hard delete
 export const deleteFile = async (req: Request, res: Response) => {
-  const filename = req.params.filename;
-  if (!filename || typeof filename !== "string")
+  const originalname = req.params.originalname;
+  if (!originalname || typeof originalname !== "string")
     return res.status(400).json({ message: "File not found" });
   const userId = (req as any).userId;
 
   try {
-    const result = await deleteAllService(userId, filename);
+    const result = await deleteAllService(userId, originalname);
     if (result === "NO_FILE") {
       return res.status(400).json({ message: "File doesn't exist." });
     }
@@ -102,39 +111,30 @@ export const deleteFile = async (req: Request, res: Response) => {
 };
 
 export const getVersion = async (req: Request, res: Response) => {
-  const filename = req.params.filename;
-  const version = Number(req.params.version);
-  const userId = (req as any).userId;
-  if (!filename || typeof filename !== "string" || !version)
-    return res.status(400).json({ message: "Incomplete request." });
+  const fileToken = req.params.token;
+  if (!fileToken || typeof fileToken !== "string")
+    return res.status(400).json({ message: "Please send the token" });
   try {
-    const saved = await findUserFile(userId, filename);
-    if (!saved.success)
-      return res.status(404).json({ message: "File doesn't exist." });
-
-    const fileId = saved.savedFile?.id;
-    const fileVersion = await prisma.fileVersion.findUnique({
+    const sharedFile = await prisma.fileShare.findUnique({
       where: {
-        fileId_version: {
-          fileId: fileId!,
-          version: version,
-        },
+        token: fileToken,
       },
     });
 
-    if (!fileVersion?.id)
-      return res
-        .status(404)
-        .json({ message: "Requested file version doesn't exist." });
+    if (!sharedFile)
+      return res.status(400).json({ message: "Please check your fileToken." });
 
-    const s3Key = fileVersion?.s3Key;
+    const fileVersion = await prisma.fileVersion.findUnique({
+      where: {
+        id: sharedFile.versionId,
+      },
+    });
+
+    const s3Key = fileVersion?.s3Key as string;
     const stream = await storage.get(s3Key);
 
     res.setHeader("Content-Type", "application/octet-stream");
-    res.setHeader(
-      "Content-Disposition",
-      `inline; filename="${saved.savedFile?.originalname}"`,
-    );
+    res.setHeader("Content-Disposition", `inline;`);
     stream.pipe(res);
   } catch (err) {
     console.log(err);
@@ -143,13 +143,13 @@ export const getVersion = async (req: Request, res: Response) => {
 };
 
 export const deleteVersion = async (req: Request, res: Response) => {
-  const filename = req.params.filename;
+  const originalname = req.params.originalname;
   const userId = (req as any).userId;
-  if (!filename || typeof filename !== "string")
+  if (!originalname || typeof originalname !== "string")
     return res.status(400).json({ message: "Incomplete input." });
 
   try {
-    const saved = await findUserFile(userId, filename);
+    const saved = await findUserFile(userId, originalname);
     if (!saved.success)
       return res.status(404).json({ message: "File doesn't exist." });
 
@@ -168,7 +168,11 @@ export const deleteVersion = async (req: Request, res: Response) => {
 
       const remainingVersions = await tx.file.findUnique({
         where: { id: saved.savedFile?.id! },
-        include: { versions: true },
+        include: {
+          versions: {
+            orderBy: { createdAt: "desc" },
+          },
+        },
       });
 
       if (remainingVersions?.versions.length! > 0) {
@@ -180,13 +184,12 @@ export const deleteVersion = async (req: Request, res: Response) => {
           },
         });
       } else {
-
         await tx.file.delete({
-          where: { id: saved.savedFile?.id!},
+          where: { id: saved.savedFile?.id! },
         });
       }
     });
-    res.status(200).json({message: "Deleted the latest version."})
+    res.status(200).json({ message: "Deleted the latest version." });
   } catch (err) {
     console.log(err);
     res.status(500).json({ message: "Internal server error" });

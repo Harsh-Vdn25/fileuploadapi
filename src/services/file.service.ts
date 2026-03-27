@@ -1,26 +1,40 @@
 import { randomUUID } from "crypto";
 import { prisma } from "../config/prismaClient";
 import { storage } from "../storage/S3Storage";
-import { isPrismaUniqueError } from "../helpers/prismaError";
+import { getFileHash } from "../helpers/contentHash";
+import { findUserFile } from "../helpers/fileHelper";
 
 export const randomID = (file: string, version: number) => {
   return `${randomUUID()}-${file}/${version}`;
 };
 export const uploadService = async (
   file: Express.Multer.File,
-  ownerId: number
-): Promise<"DUPLICATE_FILE" | "SUCCESS"> => {
+  ownerId: number,
+  isPrivate: boolean,
+): Promise<
+  { status: "DUPLICATE_FILE" } | { status: "SUCCESS"; fileToken?: string }
+> => {
   var uploaded = false;
   const generatedname = randomID(file.originalname, 1);
+
   try {
+    const fileHash = await getFileHash(file.path);
+    const saved = await findUserFile(ownerId, file.originalname);
+    if (saved.success && saved.savedFile?.latestHash === fileHash)
+      return { status: "DUPLICATE_FILE" };
+
+    const token = !isPrivate ? randomUUID() : undefined;
     await storage.save(file, generatedname);
     uploaded = true;
+    
     await prisma.$transaction(async (tx) => {
       const fileV1 = await tx.file.create({
         data: {
           originalname: file.originalname,
           ownerid: ownerId,
           mimeType: file.mimetype,
+          isPrivate: isPrivate,
+          latestHash: fileHash,
           versions: {
             create: {
               version: 1,
@@ -32,6 +46,7 @@ export const uploadService = async (
           versions: true,
         },
       });
+
       await tx.file.update({
         where: {
           id: fileV1.id,
@@ -40,51 +55,95 @@ export const uploadService = async (
           latestId: fileV1.versions[0]?.id!,
         },
       });
+
+      if (!isPrivate) {
+        await tx.fileShare.create({
+          data: {
+            versionId: fileV1.versions[0]?.id!,
+            token: token as string,
+          },
+        });
+      }
     });
-    return "SUCCESS";
+
+    return {
+      status: "SUCCESS",
+      ...(!isPrivate && { fileToken: token as string }),
+    };
   } catch (err: any) {
     if (uploaded) {
       await storage.delete(generatedname);
     }
-    if (isPrismaUniqueError(err)) {
-      return "DUPLICATE_FILE";
-    }
     throw err;
   }
 };
+
 export const updateService = async (
   file: Express.Multer.File,
-  fileId: string,
-  version: number,
-): Promise<"SUCCESS"> => {
+  ownerId: number,
+  originalname: string,
+): Promise<
+  | { status: "SUCCESS"; fileToken?: string }
+  | { status: "DUPLICATE_FILE" }
+  | { status: "FILE_NOT_FOUND" }
+> => {
+  const saved = await findUserFile(ownerId, originalname);
+
+  if (!saved.success) {
+    return { status: "FILE_NOT_FOUND" };
+  }
+
+  const version = saved.savedFile!.latest!.version + 1;
+  const fileHash = await getFileHash(file.path);
+
+  if (saved.savedFile!.latestHash === fileHash) {
+    return { status: "DUPLICATE_FILE" };
+  }
+
   const generatedname = randomID(file.originalname, version);
-  var uploaded = false;
+  const token = !saved.savedFile!.isPrivate ? randomUUID() : undefined;
+
+  let uploaded = false;
+
   try {
     await storage.save(file, generatedname);
     uploaded = true;
-    //To ensure atomicity
+
     await prisma.$transaction(async (tx) => {
-      const update = await tx.fileVersion.create({
+      const versionRow = await tx.fileVersion.create({
         data: {
-          fileId: fileId,
-          version: version,
+          fileId: saved.savedFile!.id,
+          version,
           s3Key: generatedname,
         },
       });
+
       await tx.file.update({
-        where: {
-          id: update.fileId,
-        },
+        where: { id: saved.savedFile!.id },
         data: {
-          latestId: update.id,
+          latestId: versionRow.id,
         },
       });
+
+      if (!saved.savedFile!.isPrivate) {
+        await tx.fileShare.create({
+          data: {
+            versionId: versionRow.id,
+            token: token!,
+          },
+        });
+      }
     });
-    return "SUCCESS";
+
+    return {
+      status: "SUCCESS",
+      ...(!saved.savedFile!.isPrivate && { fileToken: token! }),
+    };
   } catch (err) {
     if (uploaded) {
       await storage.delete(generatedname);
     }
+
     throw err;
   }
 };
@@ -94,7 +153,7 @@ export const deleteAllService = async (
   filename: string,
 ): Promise<"NO_FILE" | "SUCCESS"> => {
   try {
-    const saved = await prisma.file.findUnique({
+    const saved = await prisma.file.findUnique({//get all the versions and put them into the pendingDelete
       where: {
         originalname_ownerid: {
           originalname: filename,

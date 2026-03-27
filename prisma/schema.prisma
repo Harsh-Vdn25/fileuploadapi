@@ -59,6 +59,6 @@ model pendingDelete{
 model FileShare{
   id             String             @id @default(uuid())
   versionId      String             @unique
-  Link           String             @unique
+  token          String             @unique
   fileVersion    FileVersion        @relation(fields: [versionId],references: [id])
 }

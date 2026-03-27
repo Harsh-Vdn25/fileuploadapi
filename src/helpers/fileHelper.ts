@@ -1,10 +1,10 @@
 import { prisma } from "../config/prismaClient";
 
-export const findUserFile = async (userId: number, filename: string) => {
+export const findUserFile = async (userId: number, originalname: string) => {
   const savedFile = await prisma.file.findUnique({
     where: {
       originalname_ownerid: {
-        originalname: filename,
+        originalname: originalname,
         ownerid: userId,
       },
     },
