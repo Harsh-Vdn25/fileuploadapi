@@ -20,7 +20,7 @@ export const uploadService = async (
         data: {
           originalname: file.originalname,
           ownerid: ownerId,
-          mimeTypw: file.mimetype,
+          mimeType: file.mimetype,
           versions: {
             create: {
               version: 1,
@@ -107,18 +107,20 @@ export const deleteAllService = async (
     });
     if (!saved?.id) return "NO_FILE";
 
-    await prisma.file.delete({
-      where: {
-        originalname_ownerid: {
-          ownerid: ownerId,
-          originalname: saved.originalname,
+    await prisma.$transaction(async (tx) => {
+      await prisma.file.delete({
+        where: {
+          originalname_ownerid: {
+            ownerid: ownerId,
+            originalname: saved.originalname,
+          },
         },
-      },
-    });
-    //Delete these files later
-    const dataToDelete = saved.versions.map((x) => ({ s3Key: x.s3Key }));
-    await prisma.pendingDelete.createMany({
-      data: dataToDelete,
+      });
+      //Delete these files later
+      const dataToDelete = saved.versions.map((x) => ({ s3Key: x.s3Key }));
+      await prisma.pendingDelete.createMany({
+        data: dataToDelete,
+      });
     });
     return "SUCCESS";
   } catch (err) {

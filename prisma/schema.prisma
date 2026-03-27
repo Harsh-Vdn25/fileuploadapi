@@ -31,6 +31,7 @@ model File{
   mimeType         String?
   isPrivate        Boolean          @default(false)
   latestId         String?          @unique
+  latestHash       String?          
   latest           FileVersion?     @relation("latestVersion",fields: [latestId],references: [id])
   versions         FileVersion[]    @relation("FileVersions")
   @@unique([originalname,ownerid])
@@ -44,6 +45,7 @@ model FileVersion{
   createdAt       DateTime          @default(now())
   file            File              @relation("FileVersions",fields: [fileId],references: [id],onDelete: Cascade)
   latest          File?             @relation("latestVersion")
+  fileShare       FileShare?
   @@unique([fileId,version])
 }
 
@@ -52,4 +54,11 @@ model pendingDelete{
   s3Key           String            @unique
   attempts        Int               @default(0)
   createdAt       DateTime          @default(now())
+}
+
+model FileShare{
+  id             String             @id @default(uuid())
+  versionId      String             @unique
+  Link           String             @unique
+  fileVersion    FileVersion        @relation(fields: [versionId],references: [id])
 }

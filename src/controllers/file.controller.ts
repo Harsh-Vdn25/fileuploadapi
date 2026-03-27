@@ -11,8 +11,7 @@ import { prisma } from "../config/prismaClient";
 export const uploadFile = async (req: Request, res: Response) => {
   const file = req.file;
   const userId = (req as any).userId;
-  const {isPrivate} = req.body;
-  if (!file || typeof isPrivate !== "boolean")
+  if (!file )
     return res
       .status(400)
       .json({ message: "Send all the required information." });

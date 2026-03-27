@@ -16,7 +16,7 @@ describe("POST /api/file",()=>{
     it("return error if user sends invalid input(file not sent)",async()=>{
         const {res,status,json} = mockRes();
 
-        await uploadFile(mockReq({filename:"hello.txt",version:1,userId: 1,isPrivate:true}),res);
+        await uploadFile(mockReq({filename:"hello.txt",version:1,userId: 1}),res);
 
         expect(status).toHaveBeenCalledWith(400);
         expect(json).toHaveBeenCalledWith({message: "Send all the required information."});
@@ -26,7 +26,7 @@ describe("POST /api/file",()=>{
         const {res,status,json} = mockRes();
         vi.mocked(uploadService).mockImplementation(()=>{throw new Error("")});
 
-        await uploadFile(mockReq({file:mockFile,filename:"hello.txt",version:1,userId: 1,isPrivate:true}),res)
+        await uploadFile(mockReq({file:mockFile,filename:"hello.txt",version:1,userId: 1}),res)
 
         expect(status).toHaveBeenCalledWith(500);
         expect(json).toHaveBeenCalledWith({message: "Something went wrong."});
@@ -36,7 +36,7 @@ describe("POST /api/file",()=>{
         const {res,status,json} = mockRes();
         vi.mocked(uploadService).mockResolvedValue("SUCCESS");
 
-        await uploadFile(mockReq({file:mockFile,filename:"hello.txt",version:1,userId: 1,isPrivate:true}),res)
+        await uploadFile(mockReq({file:mockFile,filename:"hello.txt",version:1,userId: 1}),res)
 
         expect(status).toHaveBeenCalledWith(200);
         expect(json).toHaveBeenCalledWith({message: "Saved the file sucessfully"});
