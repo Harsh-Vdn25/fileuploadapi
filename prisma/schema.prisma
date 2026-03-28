@@ -60,5 +60,5 @@ model FileShare{
   id             String             @id @default(uuid())
   versionId      String             @unique
   token          String             @unique
-  fileVersion    FileVersion        @relation(fields: [versionId],references: [id])
+  fileVersion    FileVersion        @relation(fields: [versionId],references: [id],onDelete: Cascade)
 }

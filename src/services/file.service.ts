@@ -2,31 +2,35 @@ import { randomUUID } from "crypto";
 import { prisma } from "../config/prismaClient";
 import { storage } from "../storage/S3Storage";
 import { getFileHash } from "../helpers/contentHash";
-import { findUserFile } from "../helpers/fileHelper";
+import { findUserFile, findUserFileByHash, randomID } from "../helpers/fileHelper";
 
-export const randomID = (file: string, version: number) => {
-  return `${randomUUID()}-${file}/${version}`;
-};
+
 export const uploadService = async (
   file: Express.Multer.File,
   ownerId: number,
   isPrivate: boolean,
 ): Promise<
-  { status: "DUPLICATE_FILE" } | { status: "SUCCESS"; fileToken?: string }
+  | { status: "DUPLICATE_FILE" }
+  | { status: "SUCCESS"; fileToken?: string }
+  | { status: "FILE_EXISTS" }
 > => {
   var uploaded = false;
   const generatedname = randomID(file.originalname, 1);
 
   try {
+    // 1. Check if same content already exists 
     const fileHash = await getFileHash(file.path);
-    const saved = await findUserFile(ownerId, file.originalname);
-    if (saved.success && saved.savedFile?.latestHash === fileHash)
-      return { status: "DUPLICATE_FILE" };
+    const hashMatch = await findUserFileByHash(ownerId, fileHash);
+    if (hashMatch.success) return { status: "DUPLICATE_FILE" };
+
+    // 2. Check if same name exists (different content = conflict, let client call update)
+    const nameMatch = await findUserFile(ownerId, file.originalname);
+    if (nameMatch.success) return { status: "FILE_EXISTS" };
 
     const token = !isPrivate ? randomUUID() : undefined;
     await storage.save(file, generatedname);
     uploaded = true;
-    
+
     await prisma.$transaction(async (tx) => {
       const fileV1 = await tx.file.create({
         data: {
@@ -122,6 +126,7 @@ export const updateService = async (
         where: { id: saved.savedFile!.id },
         data: {
           latestId: versionRow.id,
+          latestHash: fileHash,
         },
       });
 
@@ -129,7 +134,7 @@ export const updateService = async (
         await tx.fileShare.create({
           data: {
             versionId: versionRow.id,
-            token: token!,
+            token: token as string,
           },
         });
       }
@@ -153,7 +158,8 @@ export const deleteAllService = async (
   filename: string,
 ): Promise<"NO_FILE" | "SUCCESS"> => {
   try {
-    const saved = await prisma.file.findUnique({//get all the versions and put them into the pendingDelete
+    const saved = await prisma.file.findUnique({
+      //get all the versions and put them into the pendingDelete
       where: {
         originalname_ownerid: {
           originalname: filename,

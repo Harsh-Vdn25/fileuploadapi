@@ -22,12 +22,18 @@ export const uploadFile = async (req: Request, res: Response) => {
     const uploadRes = await uploadService(file, userId, isPrivate);
 
     if (uploadRes.status === "DUPLICATE_FILE") {
-      return res.status(400).json({ message: "Duplicate file." });
+      return res.status(409).json({ message: "Duplicate file." });
     }
 
-    res.status(200).json({
+    if (uploadRes.status === "FILE_EXISTS") {
+      return res
+        .status(409)
+        .json({ message: "File with the same name exists." });
+    }
+
+    res.status(201).json({
       message: "Saved the file sucessfully",
-      ...(isPrivate ? {} : { fileToken: uploadRes.fileToken }),
+      ...(uploadRes.fileToken && { fileToken: uploadRes.fileToken }),
     });
   } catch {
     return res.status(500).json({
@@ -84,7 +90,10 @@ export const updateFile = async (req: Request, res: Response) => {
 
     res
       .status(200)
-      .json({ message: "File updated.", fileToken: updateRes.fileToken });
+      .json({
+        message: "File updated.",
+        ...(updateRes.fileToken && { fileToken: updateRes.fileToken }),
+      });
   } catch (err) {
     return res.status(500).json({ message: "Internal server error" });
   }

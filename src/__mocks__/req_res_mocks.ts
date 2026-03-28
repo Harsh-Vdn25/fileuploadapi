@@ -2,6 +2,7 @@ import { vi } from "vitest";
 
 interface mockReqType {
   file?: Express.Multer.File;
+  isPrivate?:boolean;
   filename?: string;
   version?: number;
   userId: number ;
@@ -9,11 +10,15 @@ interface mockReqType {
 
 export const mockReq = ({
   file,
+  isPrivate,
   filename,
   version,
   userId,
 }: mockReqType) => {
   return {
+    body:{
+      isPrivate
+    },
     file,
     params: {
       filename,
