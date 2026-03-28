@@ -1,222 +1,104 @@
-# File API
+# File Upload API
 
-A backend service for managing file uploads, retrieval, and metadata storage.
-This API provides endpoints to upload files, retrieve them, and maintain metadata in a database. It is designed to be simple, scalable, and easy to integrate with frontend or other backend services.
+A backend service for **secure file storage** with versioning, deduplication, and shareable access tokens. Built with Node.js, Express, PostgreSQL (Prisma), and S3-compatible object storage.
 
 ---
 
 ## Features
 
-* Upload files to the server
-* Retrieve files using unique ide ntifiers
-* Store file metadata in a database
-* Delete files when no longer needed
-* Efficient handling of file storage and access
-* Clean REST API design
+- **Versioning** — uploads create new versions instead of overwriting; the latest version pointer enables fast retrieval without expensive ORDER BY queries
+- **Deduplication** — SHA-256 content hashing rejects uploads that match the latest stored version
+- **Shareable tokens** — public files get share tokens for version-specific access via `GET /files/version/:token`
+- **Streaming downloads** — files stream directly from S3, keeping memory usage low
+- **Deferred deletion** — deleted files are queued for background cleanup, keeping API responses fast and preventing inconsistent state on failure
 
 ---
 
-## Tech Stack
+## Architecture
 
-* **Node.js**
-* **TypeScript**
-* **Express**
-* **Prisma ORM**
-* **PostgreSQL**
-* **Multer** (for file uploads)
+```
+Client → Routes → Controllers → Services → Database (Prisma)
+                                         └→ Storage (S3)
+```
+
+Deletion pipeline:
+
+```
+DELETE request → DB transaction → pendingDelete queue → Background worker → S3
+```
+
+The background worker runs every **15 seconds**, processing up to 50 deletions per cycle.
+
+---
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/files` | Upload a new file (`multipart/form-data`: `file`, `isPrivate`) |
+| `GET` | `/files/:filename` | Stream the latest version |
+| `PUT` | `/files/:filename` | Upload a new version (rejects duplicates) |
+| `GET` | `/files/version/:token` | Stream a specific version via share token |
+| `DELETE` | `/files/:filename/latest` | Delete latest version (removes file record if none remain) |
+| `DELETE` | `/files/:filename` | Delete all versions and queue storage cleanup |
+
+---
+
+## Setup
+
+```bash
+git clone https://github.com/<your-username>/fileUploadAPI.git
+npm install
+cp .env.example .env       # fill in values below
+npx prisma migrate dev
+npm run dev
+```
+
+**Environment variables:**
+
+```env
+PORT=
+DATABASE_URL=
+JWT_SECRET=
+AWS_ACCESS_KEY=
+AWS_SECRET_KEY=
+AWS_BUCKET=
+AWS_REGION=
+```
+
+**Run tests:** `npm run test`
+
+**Run with Docker:** `docker compose up --build`
 
 ---
 
 ## Project Structure
 
 ```
-
-src
-│
-├── config
-│   ├── creds.ts
-│   ├── multerConfig.ts
-│   └── prismaClient.ts
-│
-├── controllers
-│   └── Handles incoming HTTP requests
-│
-├── services
-│   └── Business logic for file operations
-│
-├── routes
-│   └── API route definitions
-│
-├── middleware
-│   └── Custom middleware (validation, error handling)
-│
-├── helpers
-│   └── Utility helpers for processing file logic
-│
-├── storage
-│   └── Local file storage logic
-│
-├── utils
-│   └── Common utility functions
-│
-└── server.ts
-
----
-
-## Installation
-
-Clone the repository:
-
-```bash
-git clone <repository-url>
-cd file-api
+src/
+├── config/          # Prisma, Multer, credentials
+├── controllers/     # HTTP request/response handling
+├── services/        # Business logic (versioning, deduplication, transactions)
+├── routes/
+├── helpers/         # Hashing, tokens, error handling
+├── middleware/       # Auth, rate limiting, input validation
+├── storage/         # S3 abstraction layer
+├── utils/
+└── tests/
 ```
-
-Install dependencies:
-
-```bash
-npm install
-```
-
----
-
-## Environment Variables
-
-Create a `.env` file in the root directory.
-
-Example:
-
-```
-DATABASE_URL="postgresql://username:password@localhost:5432/fileapi"
-PORT=3000
-```
-
----
-
-## Running the Server
-
-Development:
-
-```bash
-npm run dev
-```
-
-Production:
-
-```bash
-npm run build
-npm start
-```
-
----
-
-## API Endpoints
-
-### Upload File
-
-```
-POST /files/upload
-```
-
-Uploads a new file.
-
-**Request**
-
-```
-multipart/form-data
-file: <file>
-```
-
-**Response**
-
-```json
-{
-  "fileId": "12345",
-  "fileName": "example.png",
-  "url": "/files/12345"
-}
-```
-
----
-
-### Get File
-
-```
-GET /files/:fileId
-```
-
-Returns the requested file.
-
----
-
-### Get File Metadata
-
-```
-GET /files/:fileId/meta
-```
-
-Returns stored metadata for the file.
-
-**Response**
-
-```json
-{
-  "id": "12345",
-  "name": "example.png",
-  "size": 1048576,
-  "uploadedAt": "2026-03-15T10:30:00Z"
-}
-```
-
----
-
-### Delete File
-
-```
-DELETE /files/:fileId
-```
-
-Deletes the file and its metadata.
-
----
-
-## Database Schema (Example)
-
-```
-model File {
-  id          String   @id @default(uuid())
-  name        String
-  path        String
-  size        Int
-  uploadedAt  DateTime @default(now())
-}
-```
-
----
-
-## Error Handling
-
-The API returns standard HTTP status codes:
-
-| Status | Meaning               |
-| ------ | --------------------- |
-| 200    | Success               |
-| 400    | Bad Request           |
-| 404    | File Not Found        |
-| 500    | Internal Server Error |
 
 ---
 
 ## Future Improvements
 
-* File access permissions
-* Cloud storage integration (AWS S3 / GCP)
-* File versioning
-* Chunked uploads for large files
-* CDN integration
+- Chunked uploads for large files
+- File access permissions
+- Folder hierarchy support
+- CDN integration
+- Background job queue (BullMQ / Redis)
 
 ---
 
 ## License
 
-MIT License
+MIT
