@@ -1,4 +1,4 @@
-import {  beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../utils/slidingWindow.ts", () => {
   const mockAllowRequest = vi.fn();
@@ -12,7 +12,7 @@ vi.mock("../../utils/slidingWindow.ts", () => {
   };
 });
 
-const mockReq = (userId: number) => ({ userId } as any);
+const mockReq = (userId: number) => ({ userId }) as any;
 const mockRes = () => {
   const send = vi.fn();
   const status = vi.fn().mockImplementation(() => ({ send }));
@@ -27,27 +27,17 @@ const mockRes = () => {
 };
 
 //@ts-ignore
-import { SlidingWindow,__mock } from "../../utils/slidingWindow";
+import { SlidingWindow, __mock } from "../../utils/slidingWindow";
 import { rateLimiter } from "../../middleware/rateLimiter";
 
 describe("rateLimiter", () => {
-
-    beforeEach(()=>{
-        vi.clearAllMocks();
-
-        /*reset the modules so that rates Map in rateLimiter.ts 
-        starts fresh for every test without persisting the values*/
-
-        vi.resetModules();
-    })
-
   it("returns error if ratelimit exceeded", () => {
     __mock.mockReturnValue(false);
 
-    const {res,status,send} = mockRes();
+    const { res, status, send } = mockRes();
     const next = vi.fn();
 
-    rateLimiter(mockReq(1),res,next);
+    rateLimiter(mockReq(1), res, next);
 
     expect(next).not.toHaveBeenCalled();
     expect(status).toHaveBeenCalledWith(429);
@@ -57,10 +47,10 @@ describe("rateLimiter", () => {
   it("allow request if ratelimit not exceeded", () => {
     __mock.mockReturnValue(true);
 
-    const {res} = mockRes();
+    const { res } = mockRes();
     const next = vi.fn();
 
-    rateLimiter(mockReq(1),res,next);
+    rateLimiter(mockReq(1), res, next);
 
     expect(next).toHaveBeenCalled();
   });

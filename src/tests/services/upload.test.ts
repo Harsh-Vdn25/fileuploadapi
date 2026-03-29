@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../helpers/contentHash.ts",()=>({
     getFileHash: vi.fn()
@@ -24,18 +24,6 @@ vi.mock("../../storage/S3Storage", () => {
   };
 });
 
-const token = "abc-abc-abc-abc-abc";
-export const mockFileReturn={
-    id:"xxx",
-    originalname:"hello.txt",
-    ownerid: 1,
-    latestId:"latest",
-    mimeType:"idk",
-    latestHash:"fake_hash",
-    isPrivate: false
-}
-
-
 import { getFileHash } from "../../helpers/contentHash";
 import { findUserFile, findUserFileByHash, randomID } from "../../helpers/fileHelper";
 import {  uploadService } from "../../services/file.service";
@@ -43,6 +31,7 @@ import { mockFile } from "../../__mocks__/req_res_mocks";
 import { storage } from "../../storage/S3Storage";
 import { randomUUID } from "crypto";
 import { mockPrisma } from "../setup";
+import { mockFileReturn, token } from "../../__mocks__/service_mocks";
 
 describe("Testing upload service",()=>{
     it("return duplicate file incase of hash match",async()=>{

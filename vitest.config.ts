@@ -4,6 +4,9 @@ export default defineConfig({
   test: {
     include: ["src/tests/**/*.test.ts"],
     exclude: ["dist", "node_modules"],
-    setupFiles:["src/tests/setup.ts"]
+    setupFiles:["src/tests/setup.ts"],
+    clearMocks:true,
+    mockReset:true,
+    restoreMocks:true
   },
 });
