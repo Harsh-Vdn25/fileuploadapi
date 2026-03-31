@@ -6,6 +6,7 @@ interface mockReqType {
   filename?: string;
   version?: number;
   userId: number ;
+  originalname?:string
 }
 
 export const mockReq = ({
@@ -14,6 +15,7 @@ export const mockReq = ({
   filename,
   version,
   userId,
+  originalname
 }: mockReqType) => {
   return {
     body:{
@@ -23,6 +25,7 @@ export const mockReq = ({
     params: {
       filename,
       version,
+      originalname
     },
     userId,
   } as any;

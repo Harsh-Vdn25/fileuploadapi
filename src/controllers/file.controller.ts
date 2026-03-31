@@ -88,12 +88,10 @@ export const updateFile = async (req: Request, res: Response) => {
         .status(400)
         .json({ message: "There already exists a file with this name." });
 
-    res
-      .status(200)
-      .json({
-        message: "File updated.",
-        ...(updateRes.fileToken && { fileToken: updateRes.fileToken }),
-      });
+    res.status(200).json({
+      message: "File updated.",
+      ...(updateRes.fileToken && { fileToken: updateRes.fileToken }),
+    });
   } catch (err) {
     return res.status(500).json({ message: "Internal server error" });
   }
@@ -150,7 +148,7 @@ export const getVersion = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
-
+//this deletes the latest version
 export const deleteVersion = async (req: Request, res: Response) => {
   const originalname = req.params.originalname;
   const userId = (req as any).userId;
@@ -164,43 +162,31 @@ export const deleteVersion = async (req: Request, res: Response) => {
 
     await prisma.$transaction(async (tx) => {
       const deleted = await tx.fileVersion.delete({
-        where: {
-          id: saved.savedFile?.latestId!,
-        },
+        where: { id: saved.savedFile?.latestId! },
       });
 
-      await tx.pendingDelete.create({
-        data: {
-          s3Key: deleted.s3Key,
-        },
+      const pendingDeleteRecord = await tx.pendingDelete.create({
+        data: { s3Key: deleted.s3Key },
       });
 
       const remainingVersions = await tx.file.findUnique({
         where: { id: saved.savedFile?.id! },
-        include: {
-          versions: {
-            orderBy: { createdAt: "desc" },
-          },
-        },
+        include: { versions: { orderBy: { createdAt: "desc" } } },
       });
 
       if (remainingVersions?.versions.length! > 0) {
-        // 4️⃣ Update latestId to newest remaining version
         await tx.file.update({
           where: { id: remainingVersions?.id! },
-          data: {
-            latestId: remainingVersions?.versions[0]?.id!,
-          },
+          data: { latestId: remainingVersions?.versions[0]?.id! },
         });
       } else {
-        await tx.file.delete({
-          where: { id: saved.savedFile?.id! },
-        });
+        await tx.file.delete({ where: { id: saved.savedFile?.id! } });
       }
     });
-    res.status(200).json({ message: "Deleted the latest version." });
+
+    return res.status(200).json({ message: "Deleted the latest version." });
   } catch (err) {
     console.log(err);
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
