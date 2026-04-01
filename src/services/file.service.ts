@@ -183,7 +183,7 @@ export const deleteAllService = async (
       });
       //Delete these files later
       const dataToDelete = saved.versions.map((x) => ({ s3Key: x.s3Key }));
-      await prisma.pendingDelete.createMany({
+      const val = await prisma.pendingDelete.createMany({
         data: dataToDelete,
       });
     });

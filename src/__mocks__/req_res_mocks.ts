@@ -5,8 +5,9 @@ interface mockReqType {
   isPrivate?:boolean;
   filename?: string;
   version?: number;
-  userId: number ;
-  originalname?:string
+  userId?: number ;
+  originalname?:string,
+  token?: string
 }
 
 export const mockReq = ({
@@ -15,7 +16,8 @@ export const mockReq = ({
   filename,
   version,
   userId,
-  originalname
+  originalname,
+  token
 }: mockReqType) => {
   return {
     body:{
@@ -25,7 +27,8 @@ export const mockReq = ({
     params: {
       filename,
       version,
-      originalname
+      originalname,
+      token
     },
     userId,
   } as any;
